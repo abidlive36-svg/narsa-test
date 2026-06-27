@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern NARSA UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background: #0f172a; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .btn-modern { transition: all 0.2s; }
+        .option-active { background: #3b82f6 !important; color: white; border-color: #60a5fa !important; }
+        .dots { flex: 1; border-bottom: 2px dotted #475569; margin: 0 12px; }
+    </style>
+</head>
+<body class="min-h-screen p-2 md:p-4 flex flex-col text-slate-200">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
+        <button onclick="startQuiz()" class="bg-blue-600 text-white px-10 py-5 rounded-2xl text-2xl font-bold hover:bg-blue-500 shadow-2xl">
+            ابدأ الاختبار
+        </button>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="sound-correct" src="/static/sounds/correct.mp3"></audio>
+    <audio id="sound-wrong" src="/static/sounds/wrong.mp3"></audio>
+    <audio id="audio-q-read"></audio>
+    <audio id="audio-explanation"></audio>
+
+    <!-- Container: Uses w-full to be responsive -->
+    <div class="max-w-5xl mx-auto w-full flex flex-col gap-3">
+        <!-- Top Bar -->
+        <div class="glass px-4 py-2 rounded-xl flex justify-between items-center border border-slate-700">
+            <span class="font-bold text-md" id="question-count">السؤال 1 / 20</span>
+        </div>
+
+        <!-- Responsive Grid: Stacks on mobile (1 col), side-by-side on tablet/desktop (4 col) -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <!-- Left Side -->
+            <div class="md:col-span-3 flex flex-col gap-3">
+                <div class="bg-slate-950 rounded-xl border border-slate-700 shadow-2xl aspect-video flex items-center justify-center overflow-hidden">
+                    <img id="question-image" src="" class="w-full h-full object-cover" alt="Scenario Image">
+                </div>
+                <div class="glass p-4 rounded-xl border border-slate-700">
+                    <p id="question-text" class="text-xl font-bold mb-4">يرجى الضغط على ابدأ...</p>
+                    <div id="option-list" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Right Side -->
+            <div class="md:col-span-1 glass rounded-xl p-3 flex flex-col gap-3 border border-slate-700">
+                <div class="glass p-2 rounded-lg border border-slate-700">
+                    <label class="text-xs block mb-1">مستوى الصوت</label>
+                    <input type="range" min="0" max="1" step="0.1" value="0.5" class="w-full" oninput="updateVolume(this.value)">
+                </div>
+                <div id="choices" class="grid grid-cols-2 gap-2">
+                    <button class="btn-modern bg-slate-800 py-4 rounded-lg text-xl font-bold border border-slate-700" onclick="toggleSelection(1)" id="btn-1">1</button>
+                    <button class="btn-modern bg-slate-800 py-4 rounded-lg text-xl font-bold border border-slate-700" onclick="toggleSelection(2)" id="btn-2">2</button>
+                    <button class="btn-modern bg-slate-800 py-4 rounded-lg text-xl font-bold border border-slate-700" onclick="toggleSelection(3)" id="btn-3">3</button>
+                    <button class="btn-modern bg-slate-800 py-4 rounded-lg text-xl font-bold border border-slate-700" onclick="toggleSelection(4)" id="btn-4">4</button>
+                </div>
+                <button onclick="nextQuestion()" class="bg-emerald-600 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-emerald-500 w-full">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            { q: "وضع صفائح تسجيل مزورة على المركبة بشكل متعمد كاتبتر جنحة كيتعاقب عليها:", o: ["بعقوبة حبسية", "بإيداع المركبة بالحجز", "بإتلاف المركبة", "بمصادرة المركبة لفائدة الدولة"], c: [1, 2, 4], audioQ: "q1_q.mp3", audioExp: "q1_exp.mp3" }
+        ];
+
+        let idx = 0, score = 0, selectedAnswers = [];
+
+        function startQuiz() {
+            document.getElementById('start-screen').style.display = 'none';
+            loadQ();
+        }
+
+        function updateVolume(val) { document.querySelectorAll('audio').forEach(a => a.volume = val); }
+
+        function loadQ() {
+            selectedAnswers = [];
+            document.querySelectorAll('.option-active').forEach(e => e.classList.remove('option-active'));
+            const data = questions[idx];
+            document.getElementById('question-image').src = `/static/images/q${idx + 1}.webp`;
+            document.getElementById('question-text').innerText = data.q;
+            document.getElementById('question-count').innerText = `السؤال ${idx + 1} / ${questions.length}`;
+            
+            document.getElementById('audio-q-read').src = `/static/sounds/${data.audioQ}`;
+            document.getElementById('audio-q-read').play();
+
+            const list = document.getElementById('option-list');
+            list.innerHTML = '';
+            data.o.forEach((opt, i) => {
+                list.innerHTML += `<div class="option-row glass flex items-center p-3 rounded-lg cursor-pointer hover:bg-slate-700 border border-slate-700" onclick="toggleSelection(${i+1})" id="row-${i+1}"><span class="ml-2">${i+1}</span><span class="dots"></span><span>${opt}</span></div>`;
+            });
+        }
+
+        function toggleSelection(id) {
+            const index = selectedAnswers.indexOf(id);
+            if (index > -1) {
+                selectedAnswers.splice(index, 1);
+                document.getElementById(`btn-${id}`).classList.remove('option-active');
+                document.getElementById(`row-${id}`).classList.remove('option-active');
+            } else {
+                selectedAnswers.push(id);
+                document.getElementById(`btn-${id}`).classList.add('option-active');
+                document.getElementById(`row-${id}`).classList.add('option-active');
+            }
+        }
+
+        function nextQuestion() {
+            if (selectedAnswers.length === 0) return alert("الرجاء اختيار إجابة!");
+            const isCorrect = selectedAnswers.length === questions[idx].c.length && selectedAnswers.every(val => questions[idx].c.includes(val));
+            if (isCorrect) { score++; document.getElementById('sound-correct').play(); } else { document.getElementById('sound-wrong').play(); }
+            
+            document.getElementById('audio-explanation').src = `/static/sounds/${questions[idx].audioExp}`;
+            document.getElementById('audio-explanation').play();
+
+            setTimeout(() => {
+                if (idx < questions.length - 1) { idx++; loadQ(); } else { showResults(); }
+            }, 3000);
+        }
+
+        function showResults() {
+            document.querySelector('.grid').innerHTML = `<div class="md:col-span-4 flex flex-col items-center justify-center glass p-8 rounded-2xl text-center"><h1 class="text-3xl font-bold">النتيجة: ${score} / ${questions.length}</h1><button onclick="location.reload()" class="mt-6 bg-blue-600 px-6 py-3 rounded-xl font-bold">إعادة الاختبار</button></div>`;
+        }
+    </script>
+</body>
+</html>
